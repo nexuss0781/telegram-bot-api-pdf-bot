@@ -98,7 +98,7 @@ check_required_env "TELEGRAM_API_ID"
 check_required_env "TELEGRAM_API_HASH"
 
 # Environment variables that can be passed as arguments from environment by administrator.
-append_arg_from_env "TELEGRAM_HTTP_PORT" "--http-port" "8081"
+append_arg_from_env "TELEGRAM_HTTP_PORT" "--http-port" "${PORT:-8081}"
 append_flag_from_env "TELEGRAM_LOCAL" "--local"
 append_flag_from_env "TELEGRAM_STAT" "--http-stat-port=8082"  # maybe change it to dynamic variable in the future
 append_arg_from_env "TELEGRAM_LOG_FILE" "--log"
@@ -107,7 +107,7 @@ append_arg_from_env "TELEGRAM_MAX_WEBHOOK_CONNECTIONS" "--max-webhook-connection
 append_arg_from_env "TELEGRAM_VERBOSITY" "--verbosity"
 append_arg_from_env "TELEGRAM_MAX_CONNECTIONS" "--max-connections"
 append_arg_from_env "TELEGRAM_PROXY" "--proxy"
-append_arg_from_env "TELEGRAM_HTTP_IP_ADDRESS" "--http-ip-address"
+append_arg_from_env "TELEGRAM_HTTP_IP_ADDRESS" "--http-ip-address" "0.0.0.0"
 
 echo "$COMMAND"
 exec $COMMAND

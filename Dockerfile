@@ -1,16 +1,30 @@
-ARG ALPINE_VERSION=latest
+ARG ALPINE_VERSION=3.21
 FROM alpine:${ALPINE_VERSION} AS build
 
-ENV CXXFLAGS=""
-WORKDIR /usr/src/telegram-bot-api
+ARG NPROC=2
+ARG TELEGRAM_BOT_API_REF=master
 
-RUN apk add --no-cache --update alpine-sdk linux-headers git zlib-dev openssl-dev gperf cmake
-COPY telegram-bot-api /usr/src/telegram-bot-api
-ARG nproc=1
+ENV CXXFLAGS=""
+WORKDIR /usr/src
+
+RUN apk add --no-cache --update \
+        alpine-sdk \
+        linux-headers \
+        git \
+        zlib-dev \
+        openssl-dev \
+        gperf \
+        cmake \
+    && git clone --depth 1 --recursive \
+        --branch "${TELEGRAM_BOT_API_REF}" \
+        https://github.com/tdlib/telegram-bot-api.git \
+        telegram-bot-api
+
+WORKDIR /usr/src/telegram-bot-api
 RUN mkdir -p build \
  && cd build \
  && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=.. .. \
- && cmake --build . --target install -j ${nproc} \
+ && cmake --build . --target install -j "${NPROC}" \
  && strip /usr/src/telegram-bot-api/bin/telegram-bot-api
 
 FROM alpine:${ALPINE_VERSION}
