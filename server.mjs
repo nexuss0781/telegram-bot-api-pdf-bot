@@ -27,6 +27,7 @@ function readBody(req) {
 
 function makeResponse(res) {
   return {
+    setHeader(name, value) { res.setHeader(name, value); return this; },
     status(code) { res.statusCode = code; return this; },
     json(value) {
       const payload = JSON.stringify(value);
