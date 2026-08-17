@@ -38,6 +38,8 @@ services:
         sync: false
       - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
+      - key: TELEGRAM_ADMIN_USER_IDS
+        sync: false
       - key: TELEGRAM_API_BASE
         sync: false
       - key: TELEGRAM_FILE_BASE_URL
