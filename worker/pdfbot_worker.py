@@ -41,8 +41,37 @@ def resolve_file(file_path):
     return TELEGRAM_WORK_DIR / candidate
 
 
+def _large_image_pages_from_pypdf(path, sample_end):
+    from pypdf import PdfReader
+
+    reader = PdfReader(str(path), strict=False)
+    pages = min(sample_end, len(reader.pages))
+    text_parts = []
+    large_image_pages = set()
+    for index, page in enumerate(reader.pages[:pages], start=1):
+        text_parts.append(page.extract_text() or '')
+        try:
+            resources = page.get('/Resources')
+            if resources is not None:
+                resources = resources.get_object()
+            xobjects = resources.get('/XObject') if resources else None
+            if xobjects is not None:
+                xobjects = xobjects.get_object()
+                for ref in xobjects.values():
+                    obj = ref.get_object()
+                    if obj.get('/Subtype') == '/Image':
+                        width = int(obj.get('/Width', 0))
+                        height = int(obj.get('/Height', 0))
+                        if width * height >= 500_000:
+                            large_image_pages.add(index)
+                            break
+        except Exception:
+            continue
+    return pages, ' '.join(text_parts), large_image_pages
+
+
 def classify_pdf(path, progress):
-    progress('structure', 'Reading PDF structure', 35)
+    progress('structure', 'Reading PDF structure with pypdf', 35)
     info = subprocess.run(['pdfinfo', str(path)], text=True, capture_output=True, timeout=180)
     if info.returncode != 0:
         raise RuntimeError(info.stderr.strip() or 'pdfinfo could not read the PDF')
@@ -52,42 +81,28 @@ def classify_pdf(path, progress):
             pages = int(line.split(':', 1)[1].strip())
             break
     sample_end = min(max(pages, 1), 3)
-    progress('sampling', f'Sampling pages 1-{sample_end} with OCR/image detection', 65)
-    text = subprocess.run(
-        ['pdftotext', '-f', '1', '-l', str(sample_end), '-enc', 'UTF-8', str(path), '-'],
-        text=True, capture_output=True, timeout=240,
-    )
-    if text.returncode != 0:
-        raise RuntimeError(text.stderr.strip() or 'pdftotext could not read the sampled pages')
-    normalized = ' '.join(text.stdout.split())
-
-    # OCRed scans commonly contain a hidden text layer, so text presence alone
-    # is not sufficient. pdfimages reveals whether most sampled pages also carry
-    # a large raster page image underneath that text.
-    images = subprocess.run(
-        ['pdfimages', '-f', '1', '-l', str(sample_end), '-list', str(path)],
-        text=True, capture_output=True, timeout=240,
-    )
-    large_image_pages = set()
-    if images.returncode == 0:
-        for line in images.stdout.splitlines():
-            fields = line.split()
-            if len(fields) < 5 or not fields[0].isdigit() or not fields[3].isdigit() or not fields[4].isdigit():
-                continue
-            width, height = int(fields[3]), int(fields[4])
-            if width * height >= 500_000:
-                large_image_pages.add(int(fields[0]))
-
-    text_found = len(normalized) >= 40
-    pages_with_large_images = len(large_image_pages)
-    majority_image_pages = pages_with_large_images >= max(1, (sample_end + 1) // 2)
+    progress('sampling', f'Sampling pages 1-{sample_end} with pypdf OCR/image analysis', 65)
+    try:
+        sampled_pages, normalized, large_image_pages = _large_image_pages_from_pypdf(path, sample_end)
+    except Exception as exc:
+        print(f'pypdf inspection fallback: {exc}', flush=True)
+        text = subprocess.run(['pdftotext', '-f', '1', '-l', str(sample_end), '-enc', 'UTF-8', str(path), '-'], text=True, capture_output=True, timeout=240)
+        if text.returncode != 0:
+            raise RuntimeError(text.stderr.strip() or 'PDF text inspection failed')
+        normalized = ' '.join(text.stdout.split())
+        sampled_pages = sample_end
+        large_image_pages = set()
+        images = subprocess.run(['pdfimages', '-f', '1', '-l', str(sample_end), '-list', str(path)], text=True, capture_output=True, timeout=240)
+        if images.returncode == 0:
+            for line in images.stdout.splitlines():
+                fields = line.split()
+                if len(fields) >= 5 and fields[0].isdigit() and fields[3].isdigit() and fields[4].isdigit() and int(fields[3]) * int(fields[4]) >= 500_000:
+                    large_image_pages.add(int(fields[0]))
+    text_found = len(' '.join(normalized.split())) >= 40
+    majority_image_pages = len(large_image_pages) >= max(1, (sampled_pages + 1) // 2)
     if not text_found or majority_image_pages:
-        classification = 'Scanned'
-        strategy = 'local-image-coverage-ocr-aware'
-    else:
-        classification = 'Selectable'
-        strategy = 'local-text-layer-without-page-image-coverage'
-    return classification, pages, len(normalized), strategy
+        return 'Scanned', pages, len(normalized), 'local-pypdf-image-coverage-ocr-aware'
+    return 'Selectable', pages, len(normalized), 'local-pypdf-text-layer-without-page-image-coverage'
 
 
 def run_job(job):

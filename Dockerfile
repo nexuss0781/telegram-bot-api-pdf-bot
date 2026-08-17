@@ -32,7 +32,7 @@ FROM alpine:${ALPINE_VERSION}
 ENV TELEGRAM_WORK_DIR="/var/lib/telegram-bot-api" \
     TELEGRAM_TEMP_DIR="/tmp/telegram-bot-api"
 
-RUN apk add --no-cache --update openssl libstdc++ python3 poppler-utils nginx gettext nodejs npm
+RUN apk add --no-cache --update openssl libstdc++ python3 py3-pip poppler-utils nginx gettext nodejs npm
 COPY --from=build /usr/src/telegram-bot-api/bin/telegram-bot-api /usr/local/bin/telegram-bot-api
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY app-source/package.json app-source/package-lock.json /opt/pdfbot-app/
@@ -42,6 +42,8 @@ COPY tsconfig.json server.mjs ./
 COPY api ./api
 RUN npm run build
 WORKDIR /
+COPY worker/requirements.txt /opt/pdfbot-worker/requirements.txt
+RUN pip3 install --break-system-packages --no-cache-dir -r /opt/pdfbot-worker/requirements.txt
 COPY worker/pdfbot_worker.py /opt/pdfbot-worker/pdfbot_worker.py
 COPY worker/nginx.conf.template /opt/pdfbot-worker/nginx.conf.template
 RUN addgroup -S telegram-bot-api \
