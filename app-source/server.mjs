@@ -1,8 +1,13 @@
 import http from 'node:http';
-import { webhookHandler } from './dist/api/webhook.js';
-import { workerCallbackHandler } from './dist/api/worker-callback.js';
+import webhookHandler from './dist/webhook.js';
+import workerCallbackHandler from './dist/worker-callback.js';
+import { default as dashboardHandler } from './dist/dashboard.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const port = Number(process.env.PDFBOT_APP_PORT || 3000);
+const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -35,6 +40,13 @@ function makeResponse(res) {
 
 const server = http.createServer(async (req, res) => {
   try {
+    if (req.url === '/dashboard' || req.url === '/dashboard/') {
+      const html = fs.readFileSync(path.join(publicDir, 'index.html'));
+      res.statusCode = 200;
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+      res.end(html);
+      return;
+    }
     if (req.url === '/health' || req.url === '/api/health') {
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ ok: true, service: 'telegram-pdf-bot-render' }));
@@ -49,6 +61,7 @@ const server = http.createServer(async (req, res) => {
     const request = { method: req.method, headers: req.headers, body, url: req.url };
     const response = makeResponse(res);
     if (req.url.startsWith('/api/worker-callback')) await workerCallbackHandler(request, response);
+    else if (req.url.startsWith('/api/dashboard')) await dashboardHandler(request, response);
     else await webhookHandler(request, response);
   } catch (error) {
     console.error('application request failed', error);

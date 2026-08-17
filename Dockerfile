@@ -39,6 +39,7 @@ COPY app-source/package.json app-source/package-lock.json /opt/pdfbot-app/
 WORKDIR /opt/pdfbot-app
 RUN npm ci
 COPY tsconfig.json server.mjs ./
+COPY public ./public
 COPY api ./api
 RUN npm run build
 WORKDIR /

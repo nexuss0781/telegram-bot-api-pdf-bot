@@ -27,6 +27,10 @@ http {
       proxy_pass http://pdfbot_app;
       proxy_set_header Host $host;
     }
+    location /dashboard {
+      proxy_pass http://pdfbot_app;
+      proxy_set_header Host $host;
+    }
     location / {
       proxy_pass http://telegram_api;
       proxy_set_header Host $host;
