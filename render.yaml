@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: telegram-pdf-bot-unified
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    healthCheckPath: /health
+    disk:
+      name: telegram-pdf-data
+      mountPath: /var/lib/telegram-bot-api
+      sizeGB: 10
+    envVars:
+      - key: PDFBOT_WORKER_ENABLED
+        value: "true"
+      - key: TELEGRAM_LOCAL
+        value: "true"
+      - key: TELEGRAM_WORK_DIR
+        value: /var/lib/telegram-bot-api
+      - key: TELEGRAM_TEMP_DIR
+        value: /tmp/telegram-bot-api
+      - key: TELEGRAM_HTTP_PORT
+        value: "8081"
+      - key: PDFBOT_WORKER_PORT
+        value: "8090"
+      - key: PDFBOT_APP_PORT
+        value: "3000"
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+      - key: TELEGRAM_CHANNEL_USERNAME
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false
+      - key: TELEGRAM_API_BASE
+        sync: false
+      - key: TELEGRAM_FILE_BASE_URL
+        sync: false
+      - key: PDFBOT_WORKER_URL
+        sync: false
+      - key: PDFBOT_WORKER_SECRET
+        sync: false
+      - key: PDFBOT_CALLBACK_URL
+        sync: false
+      - key: PDFBOT_CALLBACK_SECRET
+        sync: false
+      - key: PARADOX_GATEWAY_URL
+        value: https://paradoxdb.onrender.com/v1
+      - key: PARADOX_API_KEY
+        sync: false
+      - key: PARADOX_PASSPHRASE
+        sync: false
+      - key: PARADOX_PROJECT
+        value: telegram-pdf-bot
+      - key: PARADOX_DATABASE
+        value: pdf-records
