@@ -35,7 +35,8 @@ function makeResponse(res) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.url === '/health' || req.url === '/api/health') {
+    if (req.url === '/' || req.url === '/health' || req.url === '/api/health') {
+      res.statusCode = 200;
       res.setHeader('content-type', 'application/json');
       res.end(JSON.stringify({ ok: true, service: 'telegram-pdf-bot-render' }));
       return;
