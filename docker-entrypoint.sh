@@ -118,12 +118,15 @@ echo "$COMMAND"
 if [ "${PDFBOT_WORKER_ENABLED:-false}" = "true" ]; then
   export TELEGRAM_HTTP_PORT="${TELEGRAM_HTTP_PORT:-8081}"
   export PDFBOT_WORKER_PORT="${PDFBOT_WORKER_PORT:-8090}"
-  envsubst '${PORT} ${TELEGRAM_HTTP_PORT} ${PDFBOT_WORKER_PORT}' < /opt/pdfbot-worker/nginx.conf.template > /tmp/nginx.conf
+  export PDFBOT_APP_PORT="${PDFBOT_APP_PORT:-3000}"
+  envsubst '${PORT} ${TELEGRAM_HTTP_PORT} ${PDFBOT_WORKER_PORT} ${PDFBOT_APP_PORT}' < /opt/pdfbot-worker/nginx.conf.template > /tmp/nginx.conf
+  node /opt/pdfbot-app/server.mjs &
+  APP_PID=$!
   python3 /opt/pdfbot-worker/pdfbot_worker.py &
   WORKER_PID=$!
   sh -c "$COMMAND" &
   BOT_API_PID=$!
-  trap 'kill "$WORKER_PID" "$BOT_API_PID" 2>/dev/null || true' TERM INT EXIT
+  trap 'kill "$APP_PID" "$WORKER_PID" "$BOT_API_PID" 2>/dev/null || true' TERM INT EXIT
   nginx -c /tmp/nginx.conf -g 'daemon off;'
   exit $?
 fi

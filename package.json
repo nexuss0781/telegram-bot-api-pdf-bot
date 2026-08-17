@@ -1,0 +1,19 @@
+{
+  "name": "telegram-pdf-bot-render",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "parad": "latest",
+    "pdfjs-dist": "^5.4.54"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vercel/node": "^5.3.24",
+    "typescript": "^5.8.3"
+  }
+}
