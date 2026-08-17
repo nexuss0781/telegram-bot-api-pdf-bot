@@ -52,7 +52,7 @@ def classify_pdf(path, progress):
             pages = int(line.split(':', 1)[1].strip())
             break
     sample_end = min(max(pages, 1), 3)
-    progress('sampling', f'Sampling pages 1-{sample_end}', 65)
+    progress('sampling', f'Sampling pages 1-{sample_end} with OCR/image detection', 65)
     text = subprocess.run(
         ['pdftotext', '-f', '1', '-l', str(sample_end), '-enc', 'UTF-8', str(path), '-'],
         text=True, capture_output=True, timeout=240,
@@ -60,8 +60,34 @@ def classify_pdf(path, progress):
     if text.returncode != 0:
         raise RuntimeError(text.stderr.strip() or 'pdftotext could not read the sampled pages')
     normalized = ' '.join(text.stdout.split())
-    classification = 'Selectable' if len(normalized) >= 40 else 'Scanned'
-    return classification, pages, len(normalized)
+
+    # OCRed scans commonly contain a hidden text layer, so text presence alone
+    # is not sufficient. pdfimages reveals whether most sampled pages also carry
+    # a large raster page image underneath that text.
+    images = subprocess.run(
+        ['pdfimages', '-f', '1', '-l', str(sample_end), '-list', str(path)],
+        text=True, capture_output=True, timeout=240,
+    )
+    large_image_pages = set()
+    if images.returncode == 0:
+        for line in images.stdout.splitlines():
+            fields = line.split()
+            if len(fields) < 5 or not fields[0].isdigit() or not fields[3].isdigit() or not fields[4].isdigit():
+                continue
+            width, height = int(fields[3]), int(fields[4])
+            if width * height >= 500_000:
+                large_image_pages.add(int(fields[0]))
+
+    text_found = len(normalized) >= 40
+    pages_with_large_images = len(large_image_pages)
+    majority_image_pages = pages_with_large_images >= max(1, (sample_end + 1) // 2)
+    if not text_found or majority_image_pages:
+        classification = 'Scanned'
+        strategy = 'local-image-coverage-ocr-aware'
+    else:
+        classification = 'Selectable'
+        strategy = 'local-text-layer-without-page-image-coverage'
+    return classification, pages, len(normalized), strategy
 
 
 def run_job(job):
@@ -84,12 +110,12 @@ def run_job(job):
         if not path.exists():
             raise RuntimeError(f'Local Telegram file path is unavailable: {path}')
         progress('located', 'File is available locally; no second Telegram download is required', 25)
-        classification, pages, text_length = classify_pdf(path, progress)
+        classification, pages, text_length, strategy = classify_pdf(path, progress)
         payload = {
             'job_id': job_id, 'status': 'complete', 'stage': 'classified', 'percent': 100,
             'classification': classification, 'pages_sampled': min(pages, 3),
             'bytes_read': path.stat().st_size, 'text_length': text_length,
-            'strategy': 'local-file-pdftotext-first-3-pages', 'context': job.get('context', {}),
+            'strategy': strategy, 'context': job.get('context', {}),
         }
         send_json(callback_url, payload, callback_secret)
     except Exception as exc:
