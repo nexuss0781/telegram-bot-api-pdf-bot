@@ -52,6 +52,12 @@ services:
         sync: false
       - key: PDFBOT_CALLBACK_SECRET
         sync: false
+      - key: PDFBOT_FORWARD_MAX_RETRIES
+        value: "5"
+      - key: PDFBOT_FORWARD_BASE_DELAY_MS
+        value: "1500"
+      - key: PDFBOT_FORWARD_QUEUE_LIMIT
+        value: "100"
       - key: PARADOX_GATEWAY_URL
         value: https://paradoxdb.onrender.com/v1
       - key: PARADOX_API_KEY
