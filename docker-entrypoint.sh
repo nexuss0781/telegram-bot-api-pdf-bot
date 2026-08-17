@@ -110,4 +110,19 @@ append_arg_from_env "TELEGRAM_PROXY" "--proxy"
 append_arg_from_env "TELEGRAM_HTTP_IP_ADDRESS" "--http-ip-address" "0.0.0.0"
 
 echo "$COMMAND"
+
+# PDF-BOT-only sidecar worker. It is enabled only when PDFBOT_WORKER_ENABLED=true.
+if [ "${PDFBOT_WORKER_ENABLED:-false}" = "true" ]; then
+  export TELEGRAM_HTTP_PORT="${TELEGRAM_HTTP_PORT:-${PORT:-8081}}"
+  export PDFBOT_WORKER_PORT="${PDFBOT_WORKER_PORT:-8090}"
+  envsubst '${PORT} ${TELEGRAM_HTTP_PORT} ${PDFBOT_WORKER_PORT}' < /opt/pdfbot-worker/nginx.conf.template > /tmp/nginx.conf
+  python3 /opt/pdfbot-worker/pdfbot_worker.py &
+  WORKER_PID=$!
+  sh -c "$COMMAND" &
+  BOT_API_PID=$!
+  trap 'kill "$WORKER_PID" "$BOT_API_PID" 2>/dev/null || true' TERM INT EXIT
+  nginx -c /tmp/nginx.conf -g 'daemon off;'
+  exit $?
+fi
+
 exec $COMMAND
